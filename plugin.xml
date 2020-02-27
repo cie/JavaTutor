@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <extension
+         id="application"
+         point="org.eclipse.core.runtime.applications">
+      <application>
+         <run
+               class="javatutor.Application">
+         </run>
+      </application>
+   </extension>
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="javatutor.JavaTutorEditor"
+            default="false"
+            id="JavaTutor.editor"
+            name="JavaTutor">
+      </editor>
+      <editorContentTypeBinding
+            contentTypeId="javaSource"
+            editorId="JavaTutor.editor">
+      </editorContentTypeBinding>
+   </extension>
+
+</plugin>
