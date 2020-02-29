@@ -14,13 +14,13 @@
    <extension
          point="org.eclipse.ui.editors">
       <editor
-            class="javatutor.JavaTutorEditor"
+            class="javatutor.ui.JavaTutorEditor"
             default="false"
             id="JavaTutor.editor"
             name="JavaTutor">
       </editor>
       <editorContentTypeBinding
-            contentTypeId="javaSource"
+            contentTypeId="org.eclipse.jdt.core.javaSource"
             editorId="JavaTutor.editor">
       </editorContentTypeBinding>
    </extension>
