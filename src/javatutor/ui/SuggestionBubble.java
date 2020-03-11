@@ -1,6 +1,7 @@
 package javatutor.ui;
 
 import java.text.MessageFormat;
+import java.util.Optional;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
@@ -71,16 +72,10 @@ public class SuggestionBubble extends Composite {
 		suggestion = new Browser(this, SWT.NONE);
 		suggestion.setBackground(null);
 		suggestion.setBackgroundMode(SWT.INHERIT_FORCE);
-		int marginLeft = margin + tailLength;
-		int marginTop = margin;
-		int marginRight = margin;
-		int marginBottom = margin;
-		suggestion.setLocation(marginLeft, marginTop);
-		suggestion.setSize(this.getSize().x - marginLeft - marginRight, this.getSize().y - marginTop - marginBottom);
 	}
 
-	public void setSuggestion(String html) {
-		if (html == null) {
+	public void setHintText(Optional<String> html) {
+		if (!html.isPresent()) {
 			setVisible(false);
 			return;
 		}
@@ -88,7 +83,20 @@ public class SuggestionBubble extends Composite {
 		suggestion.setText(MessageFormat.format(
 				"<style>body'{'background: rgb({0},{1},{2})'; margin: 0; font-size: {3}px}'</style>{4}",
 				BG.getRed(),
-				BG.getGreen(), BG.getBlue(), fontSize, html));
+				BG.getGreen(), BG.getBlue(), fontSize, html.get()));
+	}
+
+	@Override
+	public void setSize(int width, int height) {
+		if (suggestion == null)
+			return;
+		super.setSize(width, height);
+		int marginLeft = margin + tailLength;
+		int marginTop = margin;
+		int marginRight = margin;
+		int marginBottom = margin;
+		suggestion.setLocation(marginLeft, marginTop);
+		suggestion.setSize(width - marginLeft - marginRight, height - marginTop - marginBottom);
 	}
 
 }

@@ -1,10 +1,14 @@
 package javatutor.engine;
 
+import static java.util.Optional.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.HashMap;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+
+import javatutor.engine.Matching.Match;
 
 class SuggestionsTest {
 	Engine engine = new Engine();
@@ -18,11 +22,14 @@ class SuggestionsTest {
 		);
 		assertEquals(Optional.empty(), engine.suggest(
 				"k = 3; hello(); for (int i = 0; i < 10; ++i) { }; if (false) {}",
-				"world(); for (int i = 0; i < 10; ++i) { }"
+				new String[] { "world(); for (int i = 0; i < 10; ++i) { }" }
 		));
-		assertEquals(Optional.of(new Suggestion("Oops, `i` should go from 0.")), engine.suggest(
+		assertEquals(
+				of(new Hint("Oops, `i` should go from 0.", of(new Match(of(new HashMap<>()))),
+						of(new Match(of(new HashMap<>()))))),
+				engine.suggest(
 				"k = 3; hello(); for (int i = 1; i < 10; ++i) { }; if (false) {}",
-				"world(); for (int i = 0; i < 10; ++i) { }"
+				new String[] { "world(); for (int i = 0; i < 10; ++i) { }" }
 		));
 	}
 

@@ -1,6 +1,10 @@
 package javatutor.engine;
 
-public class Suggestion {
+import java.util.Optional;
+
+import javatutor.engine.Matching.Match;
+
+public class Hint {
 
 	@Override
 	public boolean equals(Object obj) {
@@ -10,7 +14,7 @@ public class Suggestion {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		Suggestion other = (Suggestion) obj;
+		Hint other = (Hint) obj;
 		if (message == null) {
 			if (other.message != null)
 				return false;
@@ -20,9 +24,13 @@ public class Suggestion {
 	}
 
 	public String message;
+	public Optional<Match> studentMatch;
+	public Optional<Match> correctMatch;
 
-	public Suggestion(String message) {
+	public Hint(String message, Optional<Match> studentMatch, Optional<Match> correctMatch) {
 		this.message = message;
+		this.studentMatch = studentMatch;
+		this.correctMatch = correctMatch;
 		
 	}
 
