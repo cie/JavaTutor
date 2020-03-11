@@ -1,19 +1,9 @@
 package javatutor.ui;
 
-import static java.nio.file.Files.lines;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
-import static java.util.stream.Collectors.joining;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -24,9 +14,7 @@ import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
-import org.eclipse.swt.widgets.MessageBox;
 
-import javatutor.engine.Engine;
 import javatutor.engine.Hint;
 import javatutor.engine.Matching.Match;
 import javatutor.engine.Task;
@@ -37,7 +25,7 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 
 	private StyledText textWidget;
 	private ISourceViewer sourceViewer;
-	private SuggestionBubble bubble;
+	private HintBubble bubble;
 
 	public JavaTutorEditor() {
 	}
@@ -48,6 +36,8 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	public void reconciled(CompilationUnit ast, boolean forced, IProgressMonitor progressMonitor) {
 		super.reconciled(ast, forced, progressMonitor);
 		if (sourceViewer == null) {
+			// could not find a better place for initialization
+			// where source viewer is already present
 			setUp();
 		}
 		try {
@@ -61,6 +51,7 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 
 	private void setHint(Optional<Hint> hint) {
 		sourceViewer.getTextWidget().getDisplay().asyncExec(() -> {
+			int maxWidth = textWidget.getTextBounds(0, textWidget.getText().length()-1).width;
 			if (!hint.isPresent()) {
 				bubble.setHintText(empty());
 				return;
@@ -75,7 +66,7 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 				Point sel = sourceViewer.getTextWidget().getSelection();
 				rect = sourceViewer.getTextWidget().getTextBounds(sel.x, sel.y);
 			}
-			bubble.setLocation(710, Math.max(50, rect.y - 20));
+			bubble.setLocation(maxWidth + 70, Math.max(50, rect.y - 20));
 			String message = hint.get().message;
 			bubble.setSize(320, Math.max(50, (message.length() / 40 + 1) * 30 + 10));
 			bubble.setHintText(of(message));
@@ -85,10 +76,8 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	private void setUp() {
 		sourceViewer = getSourceViewer();
 		sourceViewer.getTextWidget().getDisplay().syncExec(() -> {
-			// could not find a better place for initialization
-			// where source viewer is already present
 			textWidget = sourceViewer.getTextWidget();
-			bubble = new SuggestionBubble(textWidget, 0);
+			bubble = new HintBubble(textWidget, 0);
 		});
 	}
 

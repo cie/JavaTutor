@@ -13,7 +13,7 @@ import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Path;
 import org.eclipse.swt.widgets.Composite;
 
-public class SuggestionBubble extends Composite {
+public class HintBubble extends Composite {
 
 	private Browser suggestion;
 	final int margin = 6;
@@ -61,7 +61,7 @@ public class SuggestionBubble extends Composite {
 		}
 	}
 
-	public SuggestionBubble(Composite parent, int style) {
+	public HintBubble(Composite parent, int style) {
 		super(parent, style);
 
 		setSize(320, 250);

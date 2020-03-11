@@ -208,14 +208,6 @@ public class Matching {
 			return (Class<? extends ASTNode>) clazz;
 		}
 	}
-	
-	public static List<Match> findStmt(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
-		return findNode(parseStatement(pattern), concrete, bindings);
-	}
-
-	public static List<Match> findExpr(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
-		return findNode(parseExpr(pattern), concrete, bindings);
-	}
 
 	public static Optional<Match> match(ASTNode pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings)
 			throws UnknownNodeTypeException {
@@ -226,6 +218,14 @@ public class Matching {
 			return Optional.of(match);
 		}
 		return Optional.empty();
+	}
+	
+	public static List<Match> findStmt(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
+		return findNode(parseStatement(pattern), concrete, bindings);
+	}
+
+	public static List<Match> findExpr(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
+		return findNode(parseExpr(pattern), concrete, bindings);
 	}
 
 	private static List<Match> findNode(ASTNode pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {

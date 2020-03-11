@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.SimpleName;
 
 import javatutor.engine.Matching.Match;
 
@@ -40,14 +42,17 @@ public abstract class Task {
 	protected boolean findStmt(String pattern) {
 		return findStmt(pattern, () -> true);
 	}
+	protected boolean findStmt(String pattern, Supplier<Boolean> condition) {
+		return firstMatch(Matching.findStmt(pattern, currentInput, empty()), condition);
+	}
 
+	protected boolean findExpr(String pattern) {
+		return findExpr(pattern, () -> true);
+	}
 	protected boolean findExpr(String pattern, Supplier<Boolean> condition) {
 		return firstMatch(Matching.findExpr(pattern, currentInput, empty()), condition);
 	}
 
-	protected boolean findStmt(String pattern, Supplier<Boolean> condition) {
-		return firstMatch(Matching.findStmt(pattern, currentInput, empty()), condition);
-	}
 
 	/*protected boolean findVar(String type, String name) {
 		return findVar(type, name, () -> true);
@@ -67,6 +72,11 @@ public abstract class Task {
 
 	protected boolean matches(String varName, String regexp) {
 		return getVar(varName, "matches").toString().matches(regexp);
+	}
+	protected boolean isOfType(String varName, String typeName) {
+		ASTNode var = getVar(varName, "matches");
+		if (!(var instanceof Expression)) throw new TaskException("isOfType: Variable " + varName + "must refer to an expression.");
+		return ((SimpleName) var).resolveTypeBinding().getName().equals(typeName);
 	}
 
 	private boolean firstMatch(List<Match> matches, Supplier<Boolean> condition) {

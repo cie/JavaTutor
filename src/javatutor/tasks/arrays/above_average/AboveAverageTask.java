@@ -13,8 +13,10 @@ public class AboveAverageTask extends Task {
 		if (!findStmt("System.out.$p($x)", () -> matches("$p", "print(ln)?")
 				&& (matches("$x", ".*negative.*") || matches("$x", "<\\s*0") || matches("$x", "-1"))))
 			return "Tell the user that a negative number signifies the end";
-		if(!(findVar("$t[]", "$x")))
-		  return "Probably you'll need an array";
+		if (!findExpr("$x.nextInt()", () -> isOfType("$x", "Scanner")))
+			return "Use $scanner.nextInt() to read in numbers.";
+		/*if(!(findVar("$t[]", "$x")))
+		  return "Probably you'll need an array";*/
 		// if(findVar("$t[]", "$var", () -> !matches("$t", "int")))
 		// return "Make sure to use an int array.";
 		// if(findExpr("new int[$n]", () -> !matches("$n", "100")))
