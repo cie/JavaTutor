@@ -24,5 +24,50 @@
             editorId="JavaTutor.editor">
       </editorContentTypeBinding>
    </extension>
+   <extension
+         id="product"
+         point="org.eclipse.core.runtime.products">
+      <product
+            application="org.eclipse.ui.ide.workbench"
+            name="JavaTutor">
+         <property
+               name="appName"
+               value="JavaTutor">
+         </property>
+         <property
+               name="startupForegroundColor"
+               value="000000">
+         </property>
+         <property
+               name="startupMessageRect"
+               value="7,252,445,20">
+         </property>
+         <property
+               name="startupProgressRect"
+               value="5,275,540,15">
+         </property>
+         <property
+               name="preferenceCustomization"
+               value="plugin_customization.ini">
+         </property>
+      </product>
+   </extension>
+   <extension
+         point="org.eclipse.ui.intro">
+      <intro
+            class="javatutor.intro.JavaTutorIntro"
+            id="JavaTutor.intro">
+      </intro>
+      <introProductBinding
+            introId="JavaTutor.intro"
+            productId="JavaTutor.product">
+      </introProductBinding>
+   </extension>
+   <extension
+         point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension
+            targetID="org.eclipse.jdt.ui.JavaPerspective">
+      </perspectiveExtension>
+   </extension>
 
 </plugin>

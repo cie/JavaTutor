@@ -20,6 +20,11 @@ class FindTest {
 				.map(Match::getBindings).collect(toList()).toString());
 	}
 
+	private void checkFindVar(String expected, String type, String var, String concrete) {
+		assertEquals(expected, Matching.findVar(type, var, parseStatements(concrete), empty()).stream()
+				.map(Match::getBindings).collect(toList()).toString());
+	}
+
 	// -- find
 
 	@Test
@@ -40,11 +45,14 @@ class FindTest {
 	 * matches.size()); // TODO }
 	 */
 
+	@Test
+	void findVar() {
+		checkFindVar("[{x=b}, {x=a}]", "int", "$x", "int b = 7; int a;");
+	}
+
 	/*
-	 * @Test void findVar() { checkFindVar("int", "$x", "int b = 7; int a;",
-	 * "{x=b},{x=a}"); }
-	 * 
 	 * @Test void findVar_initializer() { checkFindVar("int", "$x", "0",
 	 * "int a=0,b,c=0; b=0;", "{x=a},{x=b},{x=c}"); }
 	 */
+
 }

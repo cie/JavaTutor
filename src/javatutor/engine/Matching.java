@@ -1,5 +1,8 @@
 package javatutor.engine;
 
+import static java.util.Optional.of;
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +29,11 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
 public class Matching {
+	public static final Pattern VARIABLE = Pattern.compile("\\$([a-zA-Z0-9_$]*)");
+	public static final Pattern MISSING_NODE = Pattern.compile("\\$missing\\$");
+	public static final Pattern WILDCARD_TYPED_VARIABLE = Pattern.compile("\\$([A-Z][a-zA-Z]*)");
+	public static final Pattern TYPED_VARIABLE = Pattern.compile("\\$(([A-Z][a-zA-Z]*)[0-9]+)");
+	public static final Pattern UNTYPED_VARIABLE = Pattern.compile("\\$([a-z][a-zA-Z0-9]*)");
 
 	public static class InvalidPatternException extends RuntimeException {
 		private static final long serialVersionUID = 1L;
@@ -79,7 +87,7 @@ public class Matching {
 				return false;
 			return true;
 		}
-		
+
 		public Map<String, ASTNode> getBindings() {
 			return bindings;
 		}
@@ -87,10 +95,6 @@ public class Matching {
 	}
 
 	private static class PatternMatcher extends ASTMatcher {
-		private static final Pattern VARIABLE_LIKE = Pattern.compile("\\$.*");
-		private static final Pattern WILDCARD_TYPED_VARIABLE = Pattern.compile("\\$([A-Z][a-zA-Z]*)");
-		private static final Pattern TYPED_VARIABLE = Pattern.compile("\\$(([A-Z][a-zA-Z]*)[0-9]+)");
-		private static final Pattern UNTYPED_VARIABLE = Pattern.compile("\\$([a-z][a-zA-Z0-9]*)");
 		private final Match match;
 
 		public PatternMatcher(Optional<Map<String, ASTNode>> bindings) {
@@ -104,7 +108,9 @@ public class Matching {
 		@Override
 		public boolean match(SimpleName node, Object other) {
 			String name = node.getIdentifier();
-			if (!VARIABLE_LIKE.matcher(name).matches())
+			if (!VARIABLE.matcher(name).matches())
+				return super.match(node, other);
+			if (MISSING_NODE.matcher(name).matches())
 				return super.match(node, other);
 			Matcher m;
 			if ((m = WILDCARD_TYPED_VARIABLE.matcher(name)).matches()) {
@@ -143,7 +149,7 @@ public class Matching {
 			// We need to treat types specially: `$x` is a SimpleType and `int` is not, so
 			// the default ASTMatcher does not let them through.
 			String name = node.toString();
-			if (!VARIABLE_LIKE.matcher(name).matches())
+			if (!VARIABLE.matcher(name).matches())
 				return super.match(node, other);
 			// if a variable
 			// match any type, not only SimpleType
@@ -151,7 +157,7 @@ public class Matching {
 				return false;
 			return match(node.getAST().newSimpleName(name), other);
 		}
-		
+
 		@Override
 		public boolean match(MethodInvocation node, Object other) {
 			// TODO Auto-generated method stub
@@ -215,17 +221,51 @@ public class Matching {
 		if (pattern.subtreeMatch(matcher, concrete)) {
 			Match match = matcher.getMatch();
 			match.matchedNode = concrete;
-			return Optional.of(match);
+			return of(match);
 		}
 		return Optional.empty();
 	}
-	
-	public static List<Match> findStmt(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
-		return findNode(parseStatement(pattern), concrete, bindings);
+
+	public static List<Match> findStmt(String pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {
+		return findNode(parseStatement(pattern), haystack, bindings);
 	}
 
-	public static List<Match> findExpr(String pattern, ASTNode concrete, Optional<Map<String, ASTNode>> bindings) {
-		return findNode(parseExpr(pattern), concrete, bindings);
+	public static List<Match> findExpr(String pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {
+		return findNode(parseExpr(pattern), haystack, bindings);
+	}
+
+	public static List<Match> findVar(String type, String var, ASTNode haystack,
+			Optional<Map<String, ASTNode>> bindings) {
+		List<Match> matches = new ArrayList<>();
+		Statement d = parseStatement(type + " something;");
+		if (!(d instanceof VariableDeclarationStatement))
+			throw new InvalidPatternException("findVar has invalid type pattern");
+		VariableDeclarationStatement decl = (VariableDeclarationStatement) d;
+		if (decl.fragments().size() != 1)
+			throw new InvalidPatternException("findVar has invalid type pattern");
+		final Type typePattern = decl.getType();
+		final Expression varPattern = parseExpr(var);
+		haystack.accept(new ASTVisitor() {
+			@Override
+			public boolean visit(VariableDeclarationFragment node) {
+				final ASTNode p = node.getParent();
+				Optional<Match> typeMatch;
+				if (p instanceof VariableDeclarationStatement) {
+					VariableDeclarationStatement parent = (VariableDeclarationStatement) p;
+					typeMatch = match(typePattern, parent.getType(), bindings);
+				} else {
+					return true;
+				}
+				if (!typeMatch.isPresent())
+					return true;
+				Optional<Match> varMatch = match(varPattern, node.getName(), of(typeMatch.get().bindings));
+				if (!varMatch.isPresent())
+					return true;
+				matches.add(varMatch.get());
+				return true;
+			}
+		});
+		return matches;
 	}
 
 	private static List<Match> findNode(ASTNode pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {
@@ -238,10 +278,9 @@ public class Matching {
 		});
 		return matches;
 	}
-			
 
-	
-	private static List<Match> findConsecutiveStatements(Block pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {
+	private static List<Match> findConsecutiveStatements(Block pattern, ASTNode haystack,
+			Optional<Map<String, ASTNode>> bindings) {
 		List<Match> matches = new ArrayList<>();
 		@SuppressWarnings("unchecked")
 		List<Statement> patternStatements = pattern.statements();
@@ -254,8 +293,14 @@ public class Matching {
 				// find a matching sublist of statements
 				for (int start = 0; start < statements.size() - patternStatements.size() + 1; ++start) {
 					for (int i = 0; i < patternStatements.size(); ++i) {
-						match(patternStatements.get(i), statements.get(start + i), bindings)
-								.ifPresent(matches::add); // FIXME only add match after the  inner loop
+						match(patternStatements.get(i), statements.get(start + i), bindings).ifPresent(matches::add); // FIXME
+																														// only
+																														// add
+																														// match
+																														// after
+																														// the
+																														// inner
+																														// loop
 					}
 					// here
 				}
@@ -270,7 +315,8 @@ public class Matching {
 		if (statement.fragments().size() > 1) {
 			throw new InvalidPatternException("Unsupported pattern: Variable declaration with multiple fragments.");
 		}
-		// If we search for int x = 5;  then we also accept  int y, x = 5, z;  and TODO maybe int x, y; x = 5; too.
+		// If we search for int x = 5; then we also accept int y, x = 5, z; and TODO
+		// maybe int x, y; x = 5; too.
 		// TODO If we search for int x; then also accept int y, x = 5, z;
 		List<Match> matches = new ArrayList<>();
 		VariableDeclarationFragment fragment = (VariableDeclarationFragment) statement.fragments().get(0);
@@ -289,7 +335,7 @@ public class Matching {
 		parser.setKind(ASTParser.K_STATEMENTS);
 		parser.setStatementsRecovery(true);
 		Block block = (Block) parser.createAST(null);
-		if (block.statements().size() == 0)  {
+		if (block.statements().size() == 0) {
 			throw new InvalidPatternException("Empty pattern");
 		}
 		return block;
@@ -297,7 +343,7 @@ public class Matching {
 
 	private static Statement parseStatement(String source) {
 		Block block = parseStatements(source);
-		if (block.statements().size() > 1)  {
+		if (block.statements().size() > 1) {
 			throw new InvalidPatternException("Expected a single statement, but found more than one.");
 		}
 		return (Statement) block.statements().get(0);

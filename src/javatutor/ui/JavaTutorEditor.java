@@ -4,12 +4,13 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.internal.ui.javaeditor.CompilationUnitEditor;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
@@ -18,7 +19,7 @@ import org.eclipse.swt.graphics.Rectangle;
 import javatutor.engine.Hint;
 import javatutor.engine.Matching.Match;
 import javatutor.engine.Task;
-import javatutor.tasks.arrays.above_average.AboveAverageTask;
+import javatutor.tasks.arrays.above_average.AboveBelowAverageTask;
 
 @SuppressWarnings("restriction")
 public class JavaTutorEditor extends CompilationUnitEditor {
@@ -30,7 +31,10 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	public JavaTutorEditor() {
 	}
 
-	Task task = new AboveAverageTask();
+	Task task = new AboveBelowAverageTask();
+	Timer hintTimer = null;
+	
+	final static int DELAY = 3000; // 10000
 
 	@Override
 	public void reconciled(CompilationUnit ast, boolean forced, IProgressMonitor progressMonitor) {
@@ -40,13 +44,27 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 			// where source viewer is already present
 			setUp();
 		}
-		try {
-			Optional<Hint> hint = task.generateHint(ast);
-			setHint(hint);
-		} catch (RuntimeException e) {
-			MessageDialog.openError(sourceViewer.getTextWidget().getShell(), "Internal error in JavaTutor",
-					e.getLocalizedMessage());
+		scheduleHint(ast);
+		
+	}
+
+	private void scheduleHint(CompilationUnit ast) {
+		if (hintTimer != null) {
+			hintTimer.cancel();
 		}
+		hintTimer = new Timer();
+		hintTimer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				try {
+					Optional<Hint> hint = task.generateHint(ast);
+					setHint(hint);
+				} catch (RuntimeException e) {
+					setHint(empty());
+					e.printStackTrace();
+				}
+			}
+		}, DELAY);
 	}
 
 	private void setHint(Optional<Hint> hint) {

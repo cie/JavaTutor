@@ -4,8 +4,10 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -34,7 +36,22 @@ public abstract class Task {
 		currentInput = ast;
 		currentMatch = empty();
 		Optional<String> hint = Optional.ofNullable(getHint());
+		hint = hint.map(s -> resolveTemplate(s, currentMatch));
 		return hint.map(text -> new Hint(text, currentMatch, empty()));
+	}
+
+	private static String resolveTemplate(String s, Optional<Match> match) {
+		if (!match.isPresent())
+			return s;
+		Map<String, ASTNode> bindings = match.get().bindings;
+		Matcher m = Matching.VARIABLE.matcher(s);
+		StringBuffer sb = new StringBuffer();
+		while (m.find()) {
+			m.appendReplacement(sb,
+					Optional.ofNullable(bindings.get(m.group(1))).map(ASTNode::toString).orElse(m.group(1)));
+		}
+		m.appendTail(sb);
+		return sb.toString();
 	}
 
 	protected abstract String getHint();
@@ -42,6 +59,7 @@ public abstract class Task {
 	protected boolean findStmt(String pattern) {
 		return findStmt(pattern, () -> true);
 	}
+
 	protected boolean findStmt(String pattern, Supplier<Boolean> condition) {
 		return firstMatch(Matching.findStmt(pattern, currentInput, empty()), condition);
 	}
@@ -49,33 +67,42 @@ public abstract class Task {
 	protected boolean findExpr(String pattern) {
 		return findExpr(pattern, () -> true);
 	}
+
 	protected boolean findExpr(String pattern, Supplier<Boolean> condition) {
 		return firstMatch(Matching.findExpr(pattern, currentInput, empty()), condition);
 	}
 
-
-	/*protected boolean findVar(String type, String name) {
+	protected boolean findVar(String type, String name) {
 		return findVar(type, name, () -> true);
-	}
-
-	protected boolean findVar(String type, String name, String initialValue) {
-		return findVar(type, name, initialValue, () -> true);
 	}
 
 	protected boolean findVar(String type, String name, Supplier<Boolean> condition) {
 		return firstMatch(Matching.findVar(type, name, currentInput, empty()), condition);
 	}
 
-	protected boolean findVar(String type, String name, String initialValue, Supplier<Boolean> condition) {
-		return firstMatch(Matching.findVar(type, name, initialValue, currentInput, empty()), condition);
-	}*/
-
 	protected boolean matches(String varName, String regexp) {
 		return getVar(varName, "matches").toString().matches(regexp);
 	}
+
+	protected boolean isExpr(String varName, String pattern) {
+		return isExpr(varName, pattern, () -> true);
+	}
+	protected boolean isExpr(String varName, String pattern, Supplier<Boolean> condition) {
+		 Optional<Match> match = Matching.match(Matching.parseExpr(pattern), getVar(varName, "is"), of(currentMatch.get().bindings));
+		 if (!match.isPresent()) return false;
+		 Optional<Match> lastMatch = currentMatch;
+		 try {
+			 currentMatch = match;
+			 return condition.get();
+		 } finally {
+			 currentMatch = lastMatch;
+		 }
+	}
+
 	protected boolean isOfType(String varName, String typeName) {
 		ASTNode var = getVar(varName, "matches");
-		if (!(var instanceof Expression)) throw new TaskException("isOfType: Variable " + varName + "must refer to an expression.");
+		if (!(var instanceof Expression))
+			throw new TaskException("isOfType: Variable " + varName + "must refer to an expression.");
 		return ((SimpleName) var).resolveTypeBinding().getName().equals(typeName);
 	}
 

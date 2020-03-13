@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="JavaTutor.feature"
+      label="JavaTutor"
+      version="1.0.0.qualifier">
+
+   <description url="http://www.example.com/description">
+      [Enter Feature Description here.]
+   </description>
+
+   <copyright url="http://www.example.com/copyright">
+      [Enter Copyright Description here.]
+   </copyright>
+
+   <license url="http://www.example.com/license">
+      [Enter License Description here.]
+   </license>
+
+   <includes
+         id="org.eclipse.jdt"
+         version="0.0.0"/>
+
+   <includes
+         id="org.eclipse.platform"
+         version="0.0.0"/>
+
+   <requires>
+      <import plugin="org.eclipse.ui"/>
+      <import plugin="org.eclipse.core.runtime"/>
+      <import plugin="org.apache.felix.scr"/>
+      <import plugin="org.eclipse.equinox.event"/>
+      <import plugin="org.eclipse.jdt.ui" version="3.20.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.ui.ide" version="3.16.100" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.ui.editors" version="3.13.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.jdt.core" version="3.20.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.jface.text" version="3.16.100" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.core.resources" version="3.13.600" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.ui.forms" version="3.8.200" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.jdt.debug" version="3.14.0" match="greaterOrEqual"/>
+      <import plugin="org.eclipse.jdt.debug.ui" version="3.10.500" match="greaterOrEqual"/>
+   </requires>
+
+   <plugin
+         id="JavaTutor"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+</feature>
