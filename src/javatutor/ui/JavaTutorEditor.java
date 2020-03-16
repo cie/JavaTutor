@@ -18,8 +18,8 @@ import org.eclipse.swt.graphics.Rectangle;
 
 import javatutor.engine.Hint;
 import javatutor.engine.Matching.Match;
+import javatutor.tasks.arrays.AboveBelowAverageTask;
 import javatutor.engine.Task;
-import javatutor.tasks.arrays.above_average.AboveBelowAverageTask;
 
 @SuppressWarnings("restriction")
 public class JavaTutorEditor extends CompilationUnitEditor {
@@ -35,6 +35,7 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	Timer hintTimer = null;
 	
 	final static int DELAY = 3000; // 10000
+	public static final String ID = "JavaTutor.editor";
 
 	@Override
 	public void reconciled(CompilationUnit ast, boolean forced, IProgressMonitor progressMonitor) {

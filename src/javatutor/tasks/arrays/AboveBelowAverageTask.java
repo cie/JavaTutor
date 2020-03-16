@@ -1,4 +1,4 @@
-package javatutor.tasks.arrays.above_average;
+package javatutor.tasks.arrays;
 
 import javatutor.engine.Task;
 
