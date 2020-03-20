@@ -1,13 +1,24 @@
 package javatutor.tasks.arrays;
 
-import javatutor.engine.Task;
+import javatutor.engine.HintGenerator;
 
-public class AboveBelowAverageTask extends Task {
+public class AboveBelowAverageTask extends HintGenerator {
 
 	@Override
 	protected String getHint() {
+		// errors
+		if (findStmt("for($t $i = $x;$b;$c) $stmt;")) {
+			if (!matches("$t", "int")) return "!Loop variable should be an <tt>int</tt>.";
+			if (isExpr("$x", "1")) {
+				return "!Arrays in Java always start from 0.";
+			}
+			//if (within("$stmt", () -> findVar())) {
+		}
+
+		// tips
 		if (!findExpr("new Scanner($x)"))
 			return "Start with making a Scanner variable to take inputs from the user";
+
 
 		if (!findStmt("System.out.$p($x)", () -> matches("$p", "print(ln)?") && matches("$x", ".*score.*")))
 			return "Ask the user to enter a collection of scores";
@@ -18,7 +29,7 @@ public class AboveBelowAverageTask extends Task {
 		if (!(findVar("$t[]", "$x")))
 			return "Probably you'll need an array";
 		if (findVar("$t[]", "$x", () -> !matches("$t", "int")))
-			return "Make sure you use an <tt>int</tt> array.";
+			return "!Make sure you use an <tt>int</tt> array.";
 		if (findVar("int[]", "$missing$"))
 			return "You could call it <tt>scores</tt>";
 
@@ -26,17 +37,16 @@ public class AboveBelowAverageTask extends Task {
 			return "The max size of the array should be 100.";
 		
 		if (findStmt("for($t $i = $x;$b;$c) $stmt;")) {
-			if (!matches("$t", "int")) return "Loop variable should be an <tt>int</tt>.";
 			if (isExpr("$b", "$i < $max", () -> !matches("$max", "100"))) {
-				return "Loop should go to 100";
+				return "!Loop should go to 100";
 			}
 			//if (within("$stmt", () -> findVar())) {
 				
 			//}
 		} else if (findStmt("while($x) $stmt;")) {
-			return "Please use a for loop for now.";
+			return "!Please use a for loop for now.";
 		} else if (findStmt("do $stmt while ($x)")) {
-			return "Please use a for loop for now.";
+			return "!Please use a for loop for now.";
 		} else return "You might need a loop...";
 
 		if (!findVar("Scanner", "$x") && findExpr("new Scanner($x)"))

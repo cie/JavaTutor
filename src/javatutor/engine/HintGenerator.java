@@ -17,7 +17,7 @@ import org.eclipse.jdt.core.dom.SimpleName;
 
 import javatutor.engine.Matching.Match;
 
-public abstract class Task {
+public abstract class HintGenerator {
 	public class TaskException extends RuntimeException {
 		private static final long serialVersionUID = 1L;
 

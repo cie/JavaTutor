@@ -25,4 +25,10 @@ public class ApplicationWorkbenchWindowAdvisor extends WorkbenchWindowAdvisor {
         configurer.setShowStatusLine(false);
         configurer.setTitle("Eclipse"); //$NON-NLS-1$
     }
+    
+    @Override
+    public void postWindowCreate() {
+        IWorkbenchWindowConfigurer configurer = getWindowConfigurer();
+        configurer.getWindow().getShell().setMaximized(true);
+    }
 }

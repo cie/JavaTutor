@@ -16,10 +16,15 @@ import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 
+import com.feathersjs.client.Feathers;
+import com.feathersjs.client.FeathersException;
+import com.feathersjs.client.FeathersTools;
+
 import javatutor.engine.Hint;
+import javatutor.engine.HintGenerator;
 import javatutor.engine.Matching.Match;
+import javatutor.model.Snapshot;
 import javatutor.tasks.arrays.AboveBelowAverageTask;
-import javatutor.engine.Task;
 
 @SuppressWarnings("restriction")
 public class JavaTutorEditor extends CompilationUnitEditor {
@@ -31,10 +36,10 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	public JavaTutorEditor() {
 	}
 
-	Task task = new AboveBelowAverageTask();
+	HintGenerator task = new AboveBelowAverageTask();
 	Timer hintTimer = null;
+	private Optional<Hint> currentHint = empty();
 	
-	final static int DELAY = 3000; // 10000
 	public static final String ID = "JavaTutor.editor";
 
 	@Override
@@ -46,29 +51,49 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 			setUp();
 		}
 		scheduleHint(ast);
-		
+		snapshot();
+	}
+
+	private void snapshot() {
+//		try {
+//			Snapshot s = new Snapshot();
+//			s.source = sourceViewer.getTextWidget().getText();
+//			s.createdAt = System.currentTimeMillis();
+//			FeathersTools.await(c -> Feathers.getInstance().service("snapshots", Snapshot.class).create(s, c), Snapshot.class);
+//		} catch (InterruptedException | FeathersException e) {
+//			e.printStackTrace();
+//		}
 	}
 
 	private void scheduleHint(CompilationUnit ast) {
 		if (hintTimer != null) {
 			hintTimer.cancel();
 		}
-		hintTimer = new Timer();
-		hintTimer.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				try {
-					Optional<Hint> hint = task.generateHint(ast);
-					setHint(hint);
-				} catch (RuntimeException e) {
-					setHint(empty());
-					e.printStackTrace();
-				}
+		Optional<Hint> hint = task.generateHint(ast);
+		if (hint.isPresent()) {
+			if (!hint.equals(currentHint)) {
+				setHint(empty());
 			}
-		}, DELAY);
+			hintTimer = new Timer();
+			hintTimer.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					try {
+						setHint(hint);
+					} catch (RuntimeException e) {
+						setHint(empty());
+						e.printStackTrace();
+					}
+				}
+			}, hint.get().delay);
+		} else {
+			setHint(empty());			
+		}
+	
 	}
 
 	private void setHint(Optional<Hint> hint) {
+		currentHint = hint;
 		sourceViewer.getTextWidget().getDisplay().asyncExec(() -> {
 			int maxWidth = textWidget.getTextBounds(0, textWidget.getText().length()-1).width;
 			if (!hint.isPresent()) {
