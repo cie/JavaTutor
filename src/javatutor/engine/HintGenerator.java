@@ -80,6 +80,14 @@ public abstract class HintGenerator {
 		return firstMatch(Matching.findVar(type, name, currentInput, empty()), condition);
 	}
 
+	protected boolean findVar(String type, String name, String value) {
+		return findVar(type, name, value, () -> true);
+	}
+
+	protected boolean findVar(String type, String name, String value, Supplier<Boolean> condition) {
+		return firstMatch(Matching.findVar(type, name, value, currentInput, empty()), condition);
+	}
+
 	protected boolean matches(String varName, String regexp) {
 		return getVar(varName, "matches").toString().matches(regexp);
 	}
@@ -132,5 +140,6 @@ public abstract class HintGenerator {
 		}
 		return node;
 	}
+
 
 }

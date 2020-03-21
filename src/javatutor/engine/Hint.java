@@ -1,6 +1,5 @@
 package javatutor.engine;
 
-import java.util.Date;
 import java.util.Optional;
 
 import javatutor.engine.Matching.Match;
@@ -26,12 +25,13 @@ public class Hint {
 	}
 
 	public String message;
-	public int delay = 10000;
+	public int delay = 30000;
 	public Optional<Match> studentMatch;
 	public Optional<Match> correctMatch;
+	public String source;
 
 	public Hint(String message, Optional<Match> studentMatch, Optional<Match> correctMatch) {
-		this.message = message;
+		this.source = this.message = message;
 		if (message.startsWith("!")) {
 			this.message = message.substring(1);
 			this.delay = 3000;

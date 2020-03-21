@@ -3,6 +3,8 @@ package javatutor.ui;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -16,15 +18,14 @@ import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 
-import com.feathersjs.client.Feathers;
-import com.feathersjs.client.FeathersException;
-import com.feathersjs.client.FeathersTools;
+import com.feathersjs.client.service.FeathersService.FeathersCallback;
 
 import javatutor.engine.Hint;
 import javatutor.engine.HintGenerator;
 import javatutor.engine.Matching.Match;
-import javatutor.model.Snapshot;
-import javatutor.tasks.arrays.AboveBelowAverageTask;
+import javatutor.feathers.App;
+import javatutor.feathers.model.Event;
+import javatutor.tasks.arrays.AboveBelowAverage;
 
 @SuppressWarnings("restriction")
 public class JavaTutorEditor extends CompilationUnitEditor {
@@ -36,15 +37,15 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	public JavaTutorEditor() {
 	}
 
-	HintGenerator task = new AboveBelowAverageTask();
+	HintGenerator task = new AboveBelowAverage();
 	Timer hintTimer = null;
 	private Optional<Hint> currentHint = empty();
-	
+
 	public static final String ID = "JavaTutor.editor";
 
 	@Override
-	public void reconciled(CompilationUnit ast, boolean forced, IProgressMonitor progressMonitor) {
-		super.reconciled(ast, forced, progressMonitor);
+	public void reconciled(CompilationUnit ast, boolean forced, IProgressMonitor monitor) {
+		super.reconciled(ast, forced, monitor);
 		if (sourceViewer == null) {
 			// could not find a better place for initialization
 			// where source viewer is already present
@@ -55,14 +56,28 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 	}
 
 	private void snapshot() {
-//		try {
-//			Snapshot s = new Snapshot();
-//			s.source = sourceViewer.getTextWidget().getText();
-//			s.createdAt = System.currentTimeMillis();
-//			FeathersTools.await(c -> Feathers.getInstance().service("snapshots", Snapshot.class).create(s, c), Snapshot.class);
-//		} catch (InterruptedException | FeathersException e) {
-//			e.printStackTrace();
-//		}
+		snapshot(null);
+	}
+
+	private void snapshot(String internalError) {
+		Event e = new Event();
+		sourceViewer.getTextWidget().getDisplay().syncExec(( ) -> {
+			e.source = sourceViewer.getTextWidget().getText();
+		});
+		e.hintSource = currentHint.map(hint -> hint.source).orElse(null);
+		e.button = null;
+		e.internalError = internalError;
+		e.timestamp = System.currentTimeMillis();
+		App.get().service("events", Event.class).create(e, new FeathersCallback<Event>() {
+			@Override
+			public void onSuccess(Event t) {
+			}
+
+			@Override
+			public void onError(String errorMessage) {
+				System.err.println(errorMessage);
+			}
+		});
 	}
 
 	private void scheduleHint(CompilationUnit ast) {
@@ -80,22 +95,26 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 				public void run() {
 					try {
 						setHint(hint);
+						snapshot();
 					} catch (RuntimeException e) {
 						setHint(empty());
 						e.printStackTrace();
+						StringWriter sw = new StringWriter();
+						e.printStackTrace(new PrintWriter(sw));
+						snapshot(sw.toString());
 					}
 				}
 			}, hint.get().delay);
 		} else {
-			setHint(empty());			
+			setHint(empty());
 		}
-	
+
 	}
 
 	private void setHint(Optional<Hint> hint) {
 		currentHint = hint;
 		sourceViewer.getTextWidget().getDisplay().asyncExec(() -> {
-			int maxWidth = textWidget.getTextBounds(0, textWidget.getText().length()-1).width;
+			int maxWidth = textWidget.getTextBounds(0, textWidget.getText().length() - 1).width;
 			if (!hint.isPresent()) {
 				bubble.setHintText(empty());
 				return;

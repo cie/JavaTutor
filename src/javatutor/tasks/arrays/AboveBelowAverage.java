@@ -2,7 +2,7 @@ package javatutor.tasks.arrays;
 
 import javatutor.engine.HintGenerator;
 
-public class AboveBelowAverageTask extends HintGenerator {
+public class AboveBelowAverage extends HintGenerator {
 
 	@Override
 	protected String getHint() {

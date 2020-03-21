@@ -1,0 +1,1 @@
+We need integers, so we can use casting (<code>(int)number</code>) to turn double to integer.

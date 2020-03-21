@@ -1,0 +1,1 @@
+To generate random numbers within 0 to 9, you can write <code>Math.random() * 10</code>.

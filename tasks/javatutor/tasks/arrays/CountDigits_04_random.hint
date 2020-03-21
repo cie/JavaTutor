@@ -1,0 +1,1 @@
+Remember, to generate random numbers, you can use <code>Math.random()</code> function. It will give double numbers between <code>0.0</code> and <code>1.0</code>.

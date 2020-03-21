@@ -1,4 +1,4 @@
-package javatutor.model;
+package javatutor.feathers.model;
 
 public class Snapshot {
 	public long createdAt;

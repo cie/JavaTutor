@@ -18,6 +18,7 @@ import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.MethodInvocation;
@@ -268,6 +269,46 @@ public class Matching {
 		return matches;
 	}
 
+	public static List<Match> findVar(String type, String var, String value, ASTNode haystack,
+			Optional<Map<String, ASTNode>> bindings) {
+		List<Match> matches = new ArrayList<>();
+		Statement d = parseStatement(type + " something;");
+		if (!(d instanceof VariableDeclarationStatement))
+			throw new InvalidPatternException("findVar has invalid type pattern");
+		VariableDeclarationStatement decl = (VariableDeclarationStatement) d;
+		if (decl.fragments().size() != 1)
+			throw new InvalidPatternException("findVar has invalid type pattern");
+		final Type typePattern = decl.getType();
+		final Expression varPattern = parseExpr(var);
+		final Expression valuePattern = parseExpr(value);
+		haystack.accept(new ASTVisitor() {
+			@Override
+			public boolean visit(VariableDeclarationFragment node) {
+				final ASTNode p = node.getParent();
+				Optional<Match> typeMatch;
+				if (p instanceof VariableDeclarationStatement) {
+					VariableDeclarationStatement parent = (VariableDeclarationStatement) p;
+					typeMatch = match(typePattern, parent.getType(), bindings);
+				} else {
+					return true;
+				}
+				if (!typeMatch.isPresent())
+					return true;
+				Optional<Match> varMatch = match(varPattern, node.getName(), of(typeMatch.get().bindings));
+				if (!varMatch.isPresent())
+					return true;
+				if (node.getInitializer() == null) return true; // TODO assigned after declaration?
+				Optional<Match> valueMatch = match(valuePattern, node.getInitializer(), of(varMatch.get().bindings));
+				if (!varMatch.isPresent())
+					return true;
+				matches.add(valueMatch.get());
+				return true;
+			}
+		});
+		return matches;
+	}
+
+
 	private static List<Match> findNode(ASTNode pattern, ASTNode haystack, Optional<Map<String, ASTNode>> bindings) {
 		List<Match> matches = new ArrayList<>();
 		haystack.accept(new ASTVisitor() {
@@ -327,6 +368,15 @@ public class Matching {
 			}
 		});
 		return matches;
+	}
+
+	public static CompilationUnit parseCompilationUnit(String source) {
+		ASTParser parser = ASTParser.newParser(AST.JLS13);
+		parser.setSource(source.toCharArray());
+		parser.setKind(ASTParser.K_COMPILATION_UNIT);
+		parser.setStatementsRecovery(true);
+		CompilationUnit cu = (CompilationUnit) parser.createAST(null);
+		return cu;
 	}
 
 	public static Block parseStatements(String source) {

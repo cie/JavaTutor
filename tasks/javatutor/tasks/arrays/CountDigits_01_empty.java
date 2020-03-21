@@ -1,6 +1,6 @@
 package javatutor.tasks.arrays;
 
-public class AboveBelowAverage {
+public class CountDigits {
 	public static void main(String[] args) {
 		
 	}

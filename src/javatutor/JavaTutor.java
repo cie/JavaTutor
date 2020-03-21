@@ -1,9 +1,7 @@
 package javatutor;
 
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -17,10 +15,13 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.ui.PreferenceConstants;
+import org.eclipse.jdt.launching.JavaRuntime;
 import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IViewReference;
@@ -32,13 +33,11 @@ import org.eclipse.ui.part.FileEditorInput;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
-import com.feathersjs.client.Feathers;
-import com.feathersjs.client.plugins.providers.FeathersSocketClient;
-import com.feathersjs.client.plugins.providers.FeathersSocketIO;
+import com.feathersjs.client.FeathersException;
 import com.feathersjs.client.service.Result;
 
+import javatutor.feathers.model.Task;
 import javatutor.intro.JavaTutorIntro;
-import javatutor.model.Task;
 import javatutor.ui.JavaTutorEditor;
 
 /**
@@ -56,9 +55,7 @@ public class JavaTutor extends AbstractUIPlugin {
 
 	private static IProject project;
 
-	private static IFolder src;
-
-	private static String BASE_URL = "http://localhost:3030";
+	private static IPackageFragmentRoot src;
 
 	/**
 	 * The constructor
@@ -69,10 +66,7 @@ public class JavaTutor extends AbstractUIPlugin {
 	@Override
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
-		Feathers app = Feathers.getInstance();
-		app.setBaseUrl(BASE_URL);
-		app.configure(new FeathersSocketIO());
-		FeathersSocketClient provider = (FeathersSocketClient) app.getProvider();
+		// App.get();
 		plugin = this;
 	}
 
@@ -97,22 +91,13 @@ public class JavaTutor extends AbstractUIPlugin {
 				@Override
 				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
 					SubMonitor progress = SubMonitor.convert(monitor, "Open task", 100);
-
-					Feathers app = Feathers.getInstance();
-					Result<Task> tasks;
-//		try {
-//			tasks = FeathersTools.awaitResult(c -> app.service("tasks", Task.class).find(c), Task.class);
-//		} catch (InterruptedException | FeathersException e1) {
-//			MessageDialog.openError(null, "Error", e1.getMessage());
-//			return;
-//		}
-					IWorkbenchPage page = intro.getIntroSite().getWorkbenchWindow().getActivePage();
-					for (IViewReference view : page.getViewReferences()) {
-						IViewPart v = view.getView(false);
-						if (v != null && v.getAdapter(IIntroPart.class) != null)
-							continue;
-						page.hideView(view);
+					Task task;
+					try {
+						task = loadTask();
+					} catch (FeathersException e2) {
+						throw new InvocationTargetException(e2);
 					}
+
 					IWorkspace workspace = ResourcesPlugin.getWorkspace();
 					IWorkspaceRoot root = workspace.getRoot();
 					project = root.getProject(PROJECT_NAME);
@@ -123,14 +108,21 @@ public class JavaTutor extends AbstractUIPlugin {
 					progress.setWorkRemaining(40);
 					final IFile file;
 					try {
-						file = createFile();
+						file = createJavaFile(task);
 					} catch (CoreException e1) {
 						// TODO Auto-generated catch block
 						e1.printStackTrace();
 						return;
 					}
 					progress.split(30);
-					intro.getIntroSite().getShell().getDisplay().asyncExec(() -> {
+					intro.getIntroSite().getShell().getDisplay().syncExec(() -> {
+						IWorkbenchPage page = intro.getIntroSite().getWorkbenchWindow().getActivePage();
+						for (IViewReference view : page.getViewReferences()) {
+							IViewPart v = view.getView(false);
+							if (v != null && v.getAdapter(IIntroPart.class) != null)
+								continue;
+							page.hideView(view);
+						}
 						try {
 							page.openEditor(new FileEditorInput(file), JavaTutorEditor.ID);
 						} catch (PartInitException e) {
@@ -147,11 +139,10 @@ public class JavaTutor extends AbstractUIPlugin {
 				}
 			});
 		} catch (InvocationTargetException e) {
-			if (e.getTargetException() instanceof OperationCanceledException) return;
+			if (e.getTargetException() instanceof OperationCanceledException)
+				return;
 			e.printStackTrace();
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 
 	}
@@ -165,12 +156,15 @@ public class JavaTutor extends AbstractUIPlugin {
 			project.create(desc, null);
 			project.open(null);
 			IJavaProject javaProject = JavaCore.create(project);
-			src = project.getFolder("src");
-			src.create(true, true, null);
+			IFolder srcFolder = project.getFolder("src");
+			srcFolder.create(true, true, null);
+			src = javaProject.getPackageFragmentRoot(srcFolder);
 			ArrayList<IClasspathEntry> cp = new ArrayList<>();
-			cp.addAll(Arrays.asList(PreferenceConstants.getDefaultJRELibrary()));
-			cp.add(JavaCore.newSourceEntry(src.getFullPath()));
-			javaProject.setRawClasspath(cp.toArray(new IClasspathEntry[] {}), null);
+			cp.add(JavaCore.newSourceEntry(srcFolder.getFullPath()));
+			// https://www.programcreek.com/2011/05/eclipse-jdt-tutorial-java-model/
+			cp.add(JavaRuntime.getDefaultJREContainerEntry());
+			javaProject.setRawClasspath(cp.toArray(new IClasspathEntry[] {}), project.getFullPath().append("bin"),
+					null);
 		} catch (JavaModelException e) {
 			e.printStackTrace();
 		} catch (CoreException e) {
@@ -179,18 +173,20 @@ public class JavaTutor extends AbstractUIPlugin {
 
 	}
 
-	private static IFile createFile() throws CoreException {
-		IFolder t = src.getFolder("javatutor");
-		t.create(true, true, null);
-		t = t.getFolder("tasks");
-		t.create(true, true, null);
-		t = t.getFolder("arrays");
-		t.create(true, true, null);
-		IFile file = t.getFile("AboveBelowAverage.java");
-		InputStream contents = JavaTutorIntro.class.getClassLoader()
-				.getResourceAsStream("javatutor/tasks/arrays/AboveBelowAverage.txt");
-		file.create(contents, true, null);
-		return file;
+	private static IFile createJavaFile(Task task) throws CoreException {
+		// https://www.programcreek.com/2011/05/eclipse-jdt-tutorial-java-model/
+		IPackageFragment pkg = src.createPackageFragment(task.packageName, true, null);
+		ICompilationUnit cu = pkg.createCompilationUnit(task.className + ".java", task.initialSource, true, null);
+		return (IFile) cu.getResource();
+	}
+
+	private static Task loadTask() throws InterruptedException, FeathersException {
+		Result<Task> tasks;
+		tasks = Task.find();
+		if (tasks.data.size() == 0) {
+			throw new RuntimeException("Could not load tasks");
+		}
+		return tasks.data.get(0);
 	}
 
 }
