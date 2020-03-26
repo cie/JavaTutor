@@ -18,6 +18,8 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.ui.PreferenceConstants;
 import org.eclipse.swt.browser.Browser;
+import org.eclipse.swt.browser.LocationEvent;
+import org.eclipse.swt.browser.LocationListener;
 import org.eclipse.swt.browser.OpenWindowListener;
 import org.eclipse.swt.browser.WindowEvent;
 import org.eclipse.swt.widgets.Composite;
@@ -51,23 +53,30 @@ public class JavaTutorIntro extends IntroPart {
 	@Override
 	public void createPartControl(Composite parent) {
 		browser = new Browser(parent, 0);
-		setText("<h2>Hello!</h2><p>This is a survey. The task is:</p>"
-				+ "<h3>Analyze scores</h3><p>Write a program that reads an unspecified number of "
-				+ "scores and determines how many scores are above or equal to the "
-				+ "average and how many scores are below the average. "
-				+ "Enter a negative number to signify the end of the input. "
-				+ "Assume that the maximum number of scores is 100.</p><p>"
-				+ "<button onclick='window.open();return false'>Let's start!</button>");
-		browser.addOpenWindowListener(new OpenWindowListener() {
+		setText("<h2>Hello!</h2><p>This is a .... You have to ....<p>"
+				+ "<button onclick='window.location=\"javatutor:letsStart\"'>Let's start!</button>");
+		browser.addLocationListener(new LocationListener() {
 			@Override
-			public void open(WindowEvent event) {
-				letsStart();
+			public void changing(LocationEvent event) {
+				if (event.location.equals("javatutor:letsStart")) {
+					JavaTutor.letsStart(JavaTutorIntro.this);
+					event.doit = false;
+				}
+				if (event.location.equals("javatutor:run")) {
+					JavaTutor.run();
+					event.doit = false;
+				}
+				if (event.location.equals("javatutor:nextTask")) {
+					JavaTutor.nextTask();
+					event.doit = false;
+				}
+			}
+			
+			@Override
+			public void changed(LocationEvent event) {
+				
 			}
 		});
-	}
-
-	protected void letsStart() {
-		JavaTutor.letsStart(this);
 	}
 
 	@Override

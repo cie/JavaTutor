@@ -6,7 +6,7 @@ import com.feathersjs.client.service.FeathersService;
 
 public class App extends Feathers {
 	private IFeathersProvider provider;
-	private static String BASE_URL = "http://localhost:3030";
+	private static String BASE_URL = "http://localhost:4242";
 
 	public App() {
 		setBaseUrl(BASE_URL);

@@ -8,6 +8,8 @@
 
    <launcherArgs>
       <programArgs>-consoleLog
+-perspective
+org.eclipse.jdt.ui.JavaPerspective
       </programArgs>
       <vmArgsMac>-XstartOnFirstThread -Dorg.eclipse.swt.internal.carbon.smallFonts
       </vmArgsMac>

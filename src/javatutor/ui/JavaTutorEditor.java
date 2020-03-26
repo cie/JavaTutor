@@ -20,6 +20,7 @@ import org.eclipse.swt.graphics.Rectangle;
 
 import com.feathersjs.client.service.FeathersService.FeathersCallback;
 
+import javatutor.JavaTutor;
 import javatutor.engine.Hint;
 import javatutor.engine.HintGenerator;
 import javatutor.engine.Matching.Match;
@@ -61,10 +62,14 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 
 	private void snapshot(String internalError) {
 		Event e = new Event();
-		sourceViewer.getTextWidget().getDisplay().syncExec(( ) -> {
+		sourceViewer.getTextWidget().getDisplay().syncExec(() -> {
 			e.source = sourceViewer.getTextWidget().getText();
 		});
 		e.hintSource = currentHint.map(hint -> hint.source).orElse(null);
+		e.hintPosition = currentHint.flatMap(hint -> hint.correctMatch.map(m -> m.matchedNode.getStartPosition()))
+				.orElse(null);
+		e.studentId = JavaTutor.getStudent()._id;
+		e.taskId = JavaTutor.getTask()._id;
 		e.button = null;
 		e.internalError = internalError;
 		e.timestamp = System.currentTimeMillis();
@@ -88,6 +93,8 @@ public class JavaTutorEditor extends CompilationUnitEditor {
 		if (hint.isPresent()) {
 			if (!hint.equals(currentHint)) {
 				setHint(empty());
+			} else {
+				setHint(currentHint); // reposition hint in case a line has been typed under it
 			}
 			hintTimer = new Timer();
 			hintTimer.schedule(new TimerTask() {

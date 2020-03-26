@@ -1,7 +1,12 @@
 package javatutor;
 
+import static org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants.ATTR_MAIN_TYPE_NAME;
+import static org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants.ATTR_PROJECT_NAME;
+import static org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants.ID_JAVA_APPLICATION;
+
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -11,9 +16,13 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.SubMonitor;
+import org.eclipse.debug.core.DebugPlugin;
+import org.eclipse.debug.core.ILaunchConfiguration;
+import org.eclipse.debug.core.ILaunchConfigurationType;
+import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
+import org.eclipse.debug.core.ILaunchManager;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
@@ -22,7 +31,8 @@ import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.launching.JavaRuntime;
-import org.eclipse.jface.operation.IRunnableWithProgress;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IViewReference;
 import org.eclipse.ui.IWorkbenchPage;
@@ -34,8 +44,8 @@ import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
 import com.feathersjs.client.FeathersException;
-import com.feathersjs.client.service.Result;
 
+import javatutor.feathers.model.Student;
 import javatutor.feathers.model.Task;
 import javatutor.intro.JavaTutorIntro;
 import javatutor.ui.JavaTutorEditor;
@@ -66,7 +76,6 @@ public class JavaTutor extends AbstractUIPlugin {
 	@Override
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
-		// App.get();
 		plugin = this;
 	}
 
@@ -74,6 +83,29 @@ public class JavaTutor extends AbstractUIPlugin {
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;
 		super.stop(context);
+	}
+
+	//private static Task task;
+	// TODO Move this to editor
+
+	private static IWorkbenchPage page;
+
+	private static ICompilationUnit cu;
+
+	private static List<Task> tasks;
+
+	private static int taskIndex = -1;
+
+	private static JavaTutorIntro intro;
+
+	private static Student student;
+
+	public static Student getStudent() {
+		return student;
+	}
+
+	public static Task getTask() {
+		return task;
 	}
 
 	/**
@@ -86,65 +118,95 @@ public class JavaTutor extends AbstractUIPlugin {
 	}
 
 	public static void letsStart(JavaTutorIntro intro) {
+		JavaTutor.intro = intro;
 		try {
-			PlatformUI.getWorkbench().getProgressService().busyCursorWhile(new IRunnableWithProgress() {
-				@Override
-				public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-					SubMonitor progress = SubMonitor.convert(monitor, "Open task", 100);
-					Task task;
-					try {
-						task = loadTask();
-					} catch (FeathersException e2) {
-						throw new InvocationTargetException(e2);
-					}
-
-					IWorkspace workspace = ResourcesPlugin.getWorkspace();
-					IWorkspaceRoot root = workspace.getRoot();
-					project = root.getProject(PROJECT_NAME);
-
-					if (!project.exists()) {
-						createProject(progress.split(40));
-					}
-					progress.setWorkRemaining(40);
-					final IFile file;
-					try {
-						file = createJavaFile(task);
-					} catch (CoreException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-						return;
-					}
-					progress.split(30);
-					intro.getIntroSite().getShell().getDisplay().syncExec(() -> {
-						IWorkbenchPage page = intro.getIntroSite().getWorkbenchWindow().getActivePage();
-						for (IViewReference view : page.getViewReferences()) {
-							IViewPart v = view.getView(false);
-							if (v != null && v.getAdapter(IIntroPart.class) != null)
-								continue;
-							page.hideView(view);
-						}
-						try {
-							page.openEditor(new FileEditorInput(file), JavaTutorEditor.ID);
-						} catch (PartInitException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-						intro.setText("<h3>Analyze scores</h3>Write a program that reads an unspecified number of "
-								+ "scores and determines how many scores are above or equal to the "
-								+ "average and how many scores are below the average. "
-								+ "Enter a negative number to signify the end of the input. "
-								+ "Assume that the maximum number of scores is 100.");
-						PlatformUI.getWorkbench().getIntroManager().setIntroStandby(intro, true);
-					});
+			intro.getIntroSite().getShell().getDisplay().syncExec(() -> {
+				page = intro.getIntroSite().getWorkbenchWindow().getActivePage();
+			});
+			PlatformUI.getWorkbench().getProgressService().busyCursorWhile(monitor -> {
+				SubMonitor progress = SubMonitor.convert(monitor, "Open task", 100);
+				try {
+					registerStudent();
+					task = loadTask(progress.split(30));
+					setUpWorkspace(progress.split(40));
+					openEditor(createJavaFile(task));
+					progress.split(10);
+					setUpWindow(task);
+				} catch (FeathersException | CoreException | Done e) {
+					throw new InvocationTargetException(e);
 				}
 			});
-		} catch (InvocationTargetException e) {
-			if (e.getTargetException() instanceof OperationCanceledException)
-				return;
-			e.printStackTrace();
+		} catch (InvocationTargetException e1) {
+			Throwable e = e1.getTargetException();
+			handle(e);
+		} catch (RuntimeException e) {
+			handle(e);
 		} catch (InterruptedException e) {
 		}
+	}
 
+	private static void handle(Throwable e) {
+		if (e instanceof InvocationTargetException) {
+			handle(((InvocationTargetException) e).getTargetException());
+			return;
+		}
+		if (e instanceof OperationCanceledException || e instanceof InterruptedException)
+			return;
+		if (e instanceof Done) {
+			Display.getDefault().syncExec(() -> {
+				MessageDialog.openInformation(null, "All tasks done", "You have finished all tasks. Well done!");
+			});
+			return;
+		}
+		e.printStackTrace();
+		Display.getDefault().syncExec(() -> {
+			MessageDialog.openError(null, "Error", e.getClass().getSimpleName() + ": " + e.getMessage());
+		});
+	}
+
+	private static void openEditor(final IFile file) {
+		page.getWorkbenchWindow().getShell().getDisplay().syncExec(() -> {
+			try {
+				page.openEditor(new FileEditorInput(file), JavaTutorEditor.ID);
+			} catch (PartInitException e) {
+				throw new RuntimeException(e);
+			}
+		});
+	}
+
+	private static void setUpWindow(Task task) {
+		page.getWorkbenchWindow().getShell().getDisplay().syncExec(() -> {
+			for (IViewReference view : page.getViewReferences()) {
+				IViewPart v = view.getView(false);
+				if (v != null && v.getAdapter(IIntroPart.class) != null) {
+					continue;
+				}
+				if (view.getId().equals("org.eclipse.ui.console.ConsoleView")) {
+					continue;
+				}
+				page.hideView(view);
+			}
+			try {
+				page.showView("org.eclipse.ui.console.ConsoleView");
+			} catch (PartInitException e1) {
+				e1.printStackTrace();
+			}
+			intro.setText("<h2>" + task.title + "</h2><p>" + task.instructions
+					+ "</p><p><button onclick='window.location=\"javatutor:run\"'>Run code</button>&nbsp;&nbsp;"
+					+ "<button onclick='window.location=\"javatutor:nextTask\"'>Next task</button></p>");
+			PlatformUI.getWorkbench().getIntroManager().setIntroStandby(intro, true);
+		});
+	}
+
+	private static void setUpWorkspace(SubMonitor progress) {
+		IWorkspace workspace = ResourcesPlugin.getWorkspace();
+		IWorkspaceRoot root = workspace.getRoot();
+		project = root.getProject(PROJECT_NAME);
+
+		if (!project.exists()) {
+			createProject(progress.split(40));
+		}
+		progress.setWorkRemaining(40);
 	}
 
 	private static void createProject(SubMonitor progress) {
@@ -153,8 +215,9 @@ public class JavaTutor extends AbstractUIPlugin {
 			IWorkspace workspace = ResourcesPlugin.getWorkspace();
 			IProjectDescription desc = workspace.newProjectDescription(PROJECT_NAME);
 			desc.setNatureIds(new String[] { JavaCore.NATURE_ID });
-			project.create(desc, null);
+			project.create(null);
 			project.open(null);
+			project.setDescription(desc, null);
 			IJavaProject javaProject = JavaCore.create(project);
 			IFolder srcFolder = project.getFolder("src");
 			srcFolder.create(true, true, null);
@@ -165,6 +228,11 @@ public class JavaTutor extends AbstractUIPlugin {
 			cp.add(JavaRuntime.getDefaultJREContainerEntry());
 			javaProject.setRawClasspath(cp.toArray(new IClasspathEntry[] {}), project.getFullPath().append("bin"),
 					null);
+			IFolder binFolder = project.getFolder("bin");
+			if (!binFolder.exists()) {
+				binFolder.create(true, true, null);
+			}
+			javaProject.setOutputLocation(binFolder.getFullPath(), null);
 		} catch (JavaModelException e) {
 			e.printStackTrace();
 		} catch (CoreException e) {
@@ -173,20 +241,63 @@ public class JavaTutor extends AbstractUIPlugin {
 
 	}
 
+	private static void registerStudent() throws InterruptedException, FeathersException {
+		student = Student.create();
+		tasks = student.tasks;
+	}
+
+	private static Task loadTask(SubMonitor progress) throws InterruptedException, FeathersException, Done {
+		if (tasks == null)
+			tasks = Task.find().data;
+		if (tasks.size() == 0) {
+			throw new RuntimeException("No tasks have been assigned.");
+		}
+		if (taskIndex == tasks.size() - 1) {
+			throw new Done();
+		}
+		return tasks.get(++taskIndex);
+	}
+
 	private static IFile createJavaFile(Task task) throws CoreException {
 		// https://www.programcreek.com/2011/05/eclipse-jdt-tutorial-java-model/
 		IPackageFragment pkg = src.createPackageFragment(task.packageName, true, null);
-		ICompilationUnit cu = pkg.createCompilationUnit(task.className + ".java", task.initialSource, true, null);
+		cu = pkg.createCompilationUnit(task.className + ".java", task.initialCode, true, null);
 		return (IFile) cu.getResource();
 	}
 
-	private static Task loadTask() throws InterruptedException, FeathersException {
-		Result<Task> tasks;
-		tasks = Task.find();
-		if (tasks.data.size() == 0) {
-			throw new RuntimeException("Could not load tasks");
+	public static void run() {
+		try {
+			PlatformUI.getWorkbench().saveAllEditors(false);
+			DebugPlugin plugin = DebugPlugin.getDefault();
+			String cfgName = "current JavaTutor task";
+			ILaunchManager lm = plugin.getLaunchManager();
+			ILaunchConfigurationType t = lm.getLaunchConfigurationType(ID_JAVA_APPLICATION);
+			ILaunchConfigurationWorkingCopy wc;
+			wc = t.newInstance(null, cfgName);
+			wc.setAttribute(ATTR_PROJECT_NAME, project.getName());
+			wc.setAttribute(ATTR_MAIN_TYPE_NAME, cu.findPrimaryType().getFullyQualifiedName());
+			ILaunchConfiguration config = wc.doSave();
+			config.launch(ILaunchManager.DEBUG_MODE, null);
+		} catch (CoreException e) {
+			e.printStackTrace();
 		}
-		return tasks.data.get(0);
+	}
+
+	public static void nextTask() {
+		try {
+			PlatformUI.getWorkbench().getProgressService().busyCursorWhile(monitor -> {
+				SubMonitor progress = SubMonitor.convert(monitor, "Open task", 100);
+				try {
+					task = loadTask(SubMonitor.convert(progress));
+					openEditor(createJavaFile(task));
+					setUpWindow(task);
+				} catch (FeathersException | CoreException | Done e) {
+					throw new InvocationTargetException(e);
+				}
+			});
+		} catch (Exception e) {
+			handle(e);
+		}
 	}
 
 }
